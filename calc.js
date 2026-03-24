@@ -196,58 +196,62 @@ function calcCm(phiM, b, layers) {
 }
 
 // ─── γm (peso específico médio abaixo da fundação) ───────────────────────────
-function calcGammaM(phiM, b, layers) {
+/**
+ * @param {number|null} tf  profundidade de fundação (m desde superfície)
+ * @param {number|null} zw  profundidade do NA (m desde superfície); null = sem NA
+ */
+function calcGammaM(phiM, b, layers, tf, zw) {
+  tf = tf || 0;
   const g = buildRupturePoints(phiM, b, 600);
 
-  // Limites de profundidade
+  // Limites de profundidade (z↓ desde base da fundação)
   const cumZ = [0];
   for (const lay of layers) cumZ.push(cumZ[cumZ.length - 1] + lay.h);
+
+  // Peso efetivo por camada considerando NA (zw em profundidade desde superfície)
+  // z_topo_camada_k desde superfície = tf + cumZ[k]
+  const gammaEff = layers.map((lay, k) => {
+    if (zw == null) return lay.gamma;
+    const zTopSurf = tf + cumZ[k];
+    const zBotSurf = tf + cumZ[k + 1];
+    if (zw >= zBotSurf) return lay.gamma;           // camada totalmente acima do NA
+    if (zw <= zTopSurf) return lay.gamma - 10;      // camada totalmente submersa
+    // Camada parcialmente submersa
+    const hDry = zw - zTopSurf;
+    const hWet = zBotSurf - zw;
+    return (hDry * lay.gamma + hWet * (lay.gamma - 10)) / lay.h;
+  });
 
   const areas  = new Array(layers.length).fill(0);
   const nInteg = 800;
 
-  // Profundidade máxima da superfície de ruptura
   const zMax = Math.min(
     Math.max(-g.maxDepth, -g.yP2, -g.P5.y) + 0.5,
     cumZ[cumZ.length - 1]
   );
 
-  // Para cada profundidade z, calcular largura da superfície de ruptura
-  // Largura = x_right(z) − x_left(z)
-  // Limite esquerdo: face da cunha ativa (de x=b/2 até x=0 em z=d_ponta)
-  //   x_left(z) = b/2 * (1 − z/|yP2|)  para z ≤ |yP2|, senão 0
-  // Limite direito: espiral ou face passiva, obtido por interseção numérica
-
-  const sp   = g.spiralPoints;
-  const xP2  = g.xP2;
-  const yP2  = g.yP2;
-  const d_ponta = -yP2;  // profundidade do vértice da cunha ativa
+  const sp      = g.spiralPoints;
+  const d_ponta = -g.yP2;
 
   for (let i = 0; i < nInteg; i++) {
-    const z  = (i + 0.5) / nInteg * zMax;
-    const dz = zMax / nInteg;
-    const y_target = -z;  // y↑
+    const z        = (i + 0.5) / nInteg * zMax;
+    const dz       = zMax / nInteg;
+    const y_target = -z;
 
-    // Limite esquerdo (face da cunha ativa ou eixo)
     let xLeft = 0;
-    if (z <= d_ponta) {
-      xLeft = (b / 2) * (1 - z / d_ponta);
-    }
+    if (z <= d_ponta) xLeft = (b / 2) * (1 - z / d_ponta);
 
-    // Limite direito: cruzamento com espiral ou cunha passiva (x mais alto)
     let xRight = xLeft;
 
-    // Verifica espiral
     for (let j = 0; j < sp.length - 1; j++) {
       const yA = sp[j].y, yB = sp[j + 1].y;
       if ((yA - y_target) * (yB - y_target) <= 0 && Math.abs(yA - yB) > 1e-12) {
-        const t = (y_target - yA) / (yB - yA);
+        const t  = (y_target - yA) / (yB - yA);
         const xc = sp[j].x + t * (sp[j + 1].x - sp[j].x);
         if (xc > xRight) xRight = xc;
       }
     }
 
-    // Verifica cunha passiva (P5 → P6)
     {
       const yA = g.P5.y, yB = g.yP6;
       if ((yA - y_target) * (yB - y_target) <= 0 && Math.abs(yA - yB) > 1e-12) {
@@ -270,17 +274,33 @@ function calcGammaM(phiM, b, layers) {
 
   const aTotal = areas.reduce((s, v) => s + v, 0);
   let sumGamma = 0;
-  for (let k = 0; k < layers.length; k++) sumGamma += areas[k] * layers[k].gamma;
+  for (let k = 0; k < layers.length; k++) sumGamma += areas[k] * gammaEff[k];
 
-  return { gammaM: aTotal > 0 ? sumGamma / aTotal : 0, areas, aTotal };
+  return { gammaM: aTotal > 0 ? sumGamma / aTotal : 0, areas, aTotal, gammaEff };
 }
 
 // ─── γ'm (peso específico acima da fundação) ─────────────────────────────────
-function calcGammaMAbove(tf, aboveLayers) {
+/**
+ * @param {number}      tf          profundidade de fundação (m)
+ * @param {Array}       aboveLayers camadas acima da fundação
+ * @param {number|null} zw          profundidade do NA desde superfície; null = sem NA
+ */
+function calcGammaMAbove(tf, aboveLayers, zw) {
   let totalH = 0, sumGH = 0;
+  let cumZ = 0;
   for (const lay of aboveLayers) {
+    const zTop = cumZ;
+    const zBot = cumZ + lay.h;
+    let gammaEff = lay.gamma;
+    if (zw != null && zw < zBot) {
+      const zWtInLayer = Math.max(zw, zTop);
+      const hWet = zBot - zWtInLayer;
+      const hDry = lay.h - hWet;
+      gammaEff = (hDry * lay.gamma + hWet * (lay.gamma - 10)) / lay.h;
+    }
     totalH += lay.h;
-    sumGH  += lay.h * lay.gamma;
+    sumGH  += lay.h * gammaEff;
+    cumZ    = zBot;
   }
   return totalH > 0 ? sumGH / totalH : 0;
 }
@@ -307,7 +327,12 @@ function shapeFactors(phiDeg, b, a, Nd) {
 }
 
 // ─── Cálculo principal ────────────────────────────────────────────────────────
-function calculateBearingCapacity(b, a, tf, layers, above) {
+/**
+ * @param {number|null} zw  profundidade do NA (m desde superfície); null = sem NA
+ */
+function calculateBearingCapacity(b, a, tf, layers, above, zw) {
+  zw = (zw != null && !isNaN(zw)) ? zw : null;
+
   // 1. Iteração φm
   const iterResult = iteratePhiM(b, layers);
   if (iterResult.error) return { error: iterResult.error };
@@ -316,11 +341,11 @@ function calculateBearingCapacity(b, a, tf, layers, above) {
   // 2. cm
   const { cm, lengths, lTotal } = calcCm(phiM, b, layers);
 
-  // 3. γm
-  const { gammaM, areas, aTotal } = calcGammaM(phiM, b, layers);
+  // 3. γm (com efeito do NA)
+  const { gammaM, areas, aTotal, gammaEff } = calcGammaM(phiM, b, layers, tf, zw);
 
-  // 4. γ'm
-  const gammaMAbove = calcGammaMAbove(tf, above);
+  // 4. γ'm (com efeito do NA)
+  const gammaMAbove = calcGammaMAbove(tf, above, zw);
 
   // 5. Fatores
   const { Nd, Nc, Nb }   = bearingFactors(phiM);
@@ -338,7 +363,8 @@ function calculateBearingCapacity(b, a, tf, layers, above) {
     term_c, term_q, term_b, qult,
     iterations:  iterResult.iterations,
     converged:   iterResult.converged,
-    lengths, lTotal, areas, aTotal,
+    lengths, lTotal, areas, aTotal, gammaEff,
+    zw,
     geom: buildRupturePoints(phiM, b, 120)
   };
 }

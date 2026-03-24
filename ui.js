@@ -131,6 +131,19 @@ function validate(b, a, tf, layers, above) {
   return null;
 }
 
+// ── Nível d'água ──────────────────────────────────────────────────────────────
+function toggleWT() {
+  const enabled = document.getElementById('wt-enable').checked;
+  document.getElementById('wt-input').style.display = enabled ? 'block' : 'none';
+}
+
+function readZw() {
+  const enabled = document.getElementById('wt-enable').checked;
+  if (!enabled) return null;
+  const v = parseFloat(document.getElementById('zw').value);
+  return isNaN(v) ? null : v;
+}
+
 // ── Calcular ──────────────────────────────────────────────────────────────────
 function calculate() {
   const b  = parseFloat(document.getElementById('b').value);
@@ -138,10 +151,10 @@ function calculate() {
   const tf = parseFloat(document.getElementById('tf').value);
   const layers = readLayers();
   const above  = readAbove();
+  const zw     = readZw();
 
   const valErr = validate(b, a, tf, layers, above);
   if (valErr) {
-    // Avisos de espessura não bloqueiam o cálculo
     if (valErr.startsWith('Atenção')) {
       showError(valErr);
     } else {
@@ -152,19 +165,19 @@ function calculate() {
     showError('');
   }
 
-  const res = calculateBearingCapacity(b, a, tf, layers, above);
+  const res = calculateBearingCapacity(b, a, tf, layers, above, zw);
 
   if (res.error) {
     showError('Erro no cálculo: ' + res.error);
     return;
   }
 
-  showResults(res, b, a, tf, layers, above);
+  showResults(res, b, a, tf, layers, above, zw);
 }
 
 // ── Exibir resultados ─────────────────────────────────────────────────────────
-function showResults(res, b, a, tf, layers, above) {
-  setMemorialData(res, b, a, tf, layers, above);
+function showResults(res, b, a, tf, layers, above, zw) {
+  setMemorialData(res, b, a, tf, layers, above, zw);
   document.getElementById('results').style.display = 'block';
 
   // Caixas de resultado
@@ -234,7 +247,7 @@ function showResults(res, b, a, tf, layers, above) {
   }
 
   // Gráfico
-  drawRupture('rupture-canvas', res.geom, layers, tf, b);
+  drawRupture('rupture-canvas', res.geom, layers, tf, b, zw);
 }
 
 function hideResults() {

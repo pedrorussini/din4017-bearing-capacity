@@ -221,6 +221,28 @@
     </div>
   </div>
 
+  <!-- NÍVEL D'ÁGUA -->
+  <div class="card">
+    <h2>Nível d'Água (opcional)</h2>
+    <p style="font-size:0.8rem;color:#666;margin-bottom:14px;">
+      Quando ativado, aplica γ' = γ − γ<sub>w</sub> (γ<sub>w</sub> = 10 kN/m³) às parcelas de solo submersas,
+      tanto abaixo quanto acima da fundação.
+    </p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+      <input type="checkbox" id="wt-enable" onchange="toggleWT()"
+             style="width:15px;height:15px;cursor:pointer;" />
+      <label for="wt-enable" style="font-size:0.88rem;cursor:pointer;font-weight:500;">
+        Considerar nível d'água
+      </label>
+    </div>
+    <div id="wt-input" style="display:none;">
+      <label style="max-width:300px;">
+        <span>z<sub>w</sub> — Profundidade do NA a partir da superfície (m)</span>
+        <input type="number" id="zw" value="1.0" step="0.1" min="0" />
+      </label>
+    </div>
+  </div>
+
   <!-- CALCULAR -->
   <div class="card" style="text-align:center;">
     <div id="error-msg"></div>
@@ -263,9 +285,9 @@
 </main>
 
 <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
-<script src="calc.js?v=2"></script>
-<script src="draw.js?v=2"></script>
-<script src="memorial.js?v=2"></script>
-<script src="ui.js?v=2"></script>
+<script src="calc.js?v=3"></script>
+<script src="draw.js?v=3"></script>
+<script src="memorial.js?v=3"></script>
+<script src="ui.js?v=3"></script>
 </body>
 </html>

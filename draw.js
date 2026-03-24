@@ -8,7 +8,7 @@ const LAYER_COLORS = [
   '#b3e5fc','#dcedc8','#fce4ec','#e8eaf6','#e0f2f1'
 ];
 
-function drawRupture(canvasId, geom, layers, tf, b) {
+function drawRupture(canvasId, geom, layers, tf, b, zw) {
   const canvas = document.getElementById(canvasId);
   if (!canvas || !geom || !geom.spiralPoints) return;
   const ctx = canvas.getContext('2d');
@@ -111,6 +111,25 @@ function drawRupture(canvasId, geom, layers, tf, b) {
   // Cunha passiva: P5 → P6
   ctx.lineTo(cx(geom.xP6), cy(geom.yP6));
   ctx.stroke();
+
+  // ── Nível d'água ─────────────────────────────────────────────────────────
+  if (zw != null) {
+    // No sistema de coordenadas do canvas: y=0 é a base da fundação.
+    // A superfície fica em y = tf. O NA fica em y = tf − zw.
+    const y_wt = tf - zw;
+    ctx.strokeStyle = '#1565c0';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([10, 5]);
+    ctx.beginPath();
+    ctx.moveTo(cx(xMin), cy(y_wt));
+    ctx.lineTo(cx(xMax), cy(y_wt));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = '#1565c0';
+    ctx.font = 'bold 10px Segoe UI';
+    ctx.textAlign = 'left';
+    ctx.fillText(`NA  zw=${zw}m`, cx(xMin) + 4, cy(y_wt) - 4);
+  }
 
   // ── Eixo de simetria (tracejado) ─────────────────────────────────────────
   ctx.strokeStyle = '#9e9e9e';

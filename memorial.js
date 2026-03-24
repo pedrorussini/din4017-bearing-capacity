@@ -8,9 +8,9 @@
 let _lastResult = null;
 let _lastInputs  = null;
 
-function setMemorialData(res, b, a, tf, layers, above) {
+function setMemorialData(res, b, a, tf, layers, above, zw) {
   _lastResult = res;
-  _lastInputs  = { b, a, tf, layers, above };
+  _lastInputs  = { b, a, tf, layers, above, zw };
 }
 
 async function downloadMemorial() {
@@ -19,7 +19,7 @@ async function downloadMemorial() {
   if (!D) { alert('Biblioteca docx não carregada. Verifique a conexão.'); return; }
 
   const R = _lastResult;
-  const { b, a, tf, layers, above } = _lastInputs;
+  const { b, a, tf, layers, above, zw } = _lastInputs;
 
   // ─── Helpers ─────────────────────────────────────────────────────────────
   const H1 = (text) => new D.Paragraph({ text, heading: D.HeadingLevel.HEADING_1,
@@ -122,6 +122,24 @@ async function downloadMemorial() {
     ['#', 'Descrição', 'h (m)', 'γ (kN/m³)'],
     above.map((l, i) => [i+1, l.desc || `Sub-camada ${i+1}`, l.h, l.gamma])
   ));
+  children.push(BR());
+
+  children.push(H2('1.4 Nível d\'Água'));
+  if (zw != null) {
+    children.push(tbl(
+      ['Parâmetro', 'Símbolo', 'Valor', 'Unidade'],
+      [
+        ['Profundidade do NA (desde superfície)', 'zw', zw, 'm'],
+        ['Peso específico da água', 'γw', '10', 'kN/m³'],
+      ]
+    ));
+    children.push(P(T(
+      `Peso efetivo aplicado: γ' = γ − γw. Camadas com topo a partir de ${zw} m de profundidade ` +
+      `recebem peso específico reduzido.`
+    )));
+  } else {
+    children.push(P(T('Nível d\'água não considerado (solo seco).')));
+  }
   children.push(BR());
 
   // ── 2. Metodologia ──────────────────────────────────────────────────────
@@ -274,14 +292,16 @@ async function downloadMemorial() {
     )
   ));
 
+  const gammaEffArr = R.gammaEff || layers.map(l => l.gamma);
   children.push(tbl(
-    ['Camada', 'γi (kN/m³)', 'Ai (m²)', 'Ai·γi (kN/m)'],
-    layers.map((l, k) => [
-      l.desc || `Camada ${k+1}`,
-      l.gamma,
-      n3(R.areas[k]),
-      n3(R.areas[k] * l.gamma)
-    ]).concat([['Total', '—', n3(R.aTotal), n3(layers.reduce((s,l,k) => s + R.areas[k]*l.gamma, 0))]])
+    zw != null
+      ? ['Camada', 'γi (kN/m³)', "γ'i efetivo (kN/m³)", 'Ai (m²)', "Ai·γ'i (kN/m)"]
+      : ['Camada', 'γi (kN/m³)', 'Ai (m²)', 'Ai·γi (kN/m)'],
+    layers.map((l, k) => zw != null
+      ? [l.desc || `Camada ${k+1}`, l.gamma, n2(gammaEffArr[k]), n3(R.areas[k]), n3(R.areas[k] * gammaEffArr[k])]
+      : [l.desc || `Camada ${k+1}`, l.gamma, n3(R.areas[k]), n3(R.areas[k] * l.gamma)]
+    ).concat([['Total', '—', ...(zw != null ? ['—'] : []), n3(R.aTotal),
+      n3(layers.reduce((s, l, k) => s + R.areas[k] * gammaEffArr[k], 0))]])
   ));
   children.push(BR());
   children.push(P(B(`γm = ${n2(R.gammaM)} kN/m³`)));
@@ -300,8 +320,30 @@ async function downloadMemorial() {
     )
   ));
 
-  const gammaAboveNum = above.map(l => `${l.h} × ${l.gamma}`).join(' + ');
-  children.push(P(T(`γ'm = (${gammaAboveNum}) / ${tf} = `), B(`${n2(R.gammaMAbove)} kN/m³`)));
+  if (zw != null) {
+    // Mostrar peso efetivo de cada sub-camada
+    let cumZ2 = 0;
+    const aboveRows = above.map(l => {
+      const zTop = cumZ2, zBot = cumZ2 + l.h;
+      cumZ2 = zBot;
+      let gEff = l.gamma;
+      if (zw < zBot) {
+        const zWtInLayer = Math.max(zw, zTop);
+        const hWet = zBot - zWtInLayer;
+        const hDry = l.h - hWet;
+        gEff = (hDry * l.gamma + hWet * (l.gamma - 10)) / l.h;
+      }
+      return [l.desc || `Sub-camada`, n2(zTop), n2(zBot), l.gamma, n2(gEff), l.h];
+    });
+    children.push(tbl(
+      ['Camada', 'z topo (m)', 'z fundo (m)', 'γ (kN/m³)', "γ' efetivo (kN/m³)", 'h (m)'],
+      aboveRows
+    ));
+    children.push(P(T(`γ'm (ponderado com NA) = `), B(`${n2(R.gammaMAbove)} kN/m³`)));
+  } else {
+    const gammaAboveNum = above.map(l => `${l.h} × ${l.gamma}`).join(' + ');
+    children.push(P(T(`γ'm = (${gammaAboveNum}) / ${tf} = `), B(`${n2(R.gammaMAbove)} kN/m³`)));
+  }
 
   // ── 8. Fatores de Capacidade de Carga ────────────────────────────────
   children.push(H1('8. Fatores de Capacidade de Carga'));
