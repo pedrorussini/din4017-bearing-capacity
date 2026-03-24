@@ -16,7 +16,14 @@ function setMemorialData(res, b, a, tf, layers, above, zw) {
 async function downloadMemorial() {
   if (!_lastResult) { alert('Execute o cálculo antes de gerar a memória.'); return; }
   const D = window.docx;
-  if (!D) { alert('Biblioteca docx não carregada. Verifique a conexão.'); return; }
+  if (!D) {
+    if (window._docxLoadError) {
+      alert('Falha ao carregar a biblioteca docx (CDN inacessível).\nVerifique sua conexão com a internet e recarregue a página.');
+    } else {
+      alert('Biblioteca docx ainda não carregada.\nAguarde alguns segundos e tente novamente, ou recarregue a página.');
+    }
+    return;
+  }
 
   const R = _lastResult;
   const { b, a, tf, layers, above, zw } = _lastInputs;
