@@ -128,7 +128,7 @@ function drawRupture(canvasId, geom, layers, tf, b, zw) {
     ctx.fillStyle = '#1565c0';
     ctx.font = 'bold 10px Segoe UI';
     ctx.textAlign = 'left';
-    ctx.fillText(`NA  zw=${zw}m`, cx(xMin) + 4, cy(y_wt) - 4);
+    ctx.fillText(`NA  (${zw}m desde superfície)`, cx(xMin) + 4, cy(y_wt) - 4);
   }
 
   // ── Eixo de simetria (tracejado) ─────────────────────────────────────────
@@ -141,15 +141,30 @@ function drawRupture(canvasId, geom, layers, tf, b, zw) {
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // ── Cotas verticais ───────────────────────────────────────────────────────
-  ctx.fillStyle = '#333';
+  // ── Cotas verticais (profundidade desde a superfície do terreno) ─────────
+  // y = 0  →  base da fundação  →  profundidade = tf
+  // y = -z →  z abaixo da base →  profundidade = tf + z
   ctx.font = '10px Segoe UI';
   ctx.textAlign = 'right';
   const depthMax = Math.ceil(-yMinData + 1);
-  const step = depthMax <= 5 ? 1 : depthMax <= 10 ? 2 : 5;
-  for (let z = 0; z <= depthMax; z += step) {
-    const yLine = -z;
-    ctx.fillText(`${z}m`, cx(xMin) - 2, cy(yLine) + 3);
+  const step = (tf + depthMax) <= 8 ? 1 : (tf + depthMax) <= 16 ? 2 : 5;
+
+  // Cota "0m" na superfície do terreno (y = tf no sistema do canvas)
+  ctx.fillStyle = '#388e3c';
+  ctx.fillText('0m', cx(xMin) - 2, cy(tf) + 3);
+
+  // Cota da base da fundação
+  ctx.fillStyle = '#555';
+  ctx.fillText(`${tf}m`, cx(xMin) - 2, cy(0) + 3);
+
+  // Cotas abaixo da fundação
+  for (let z = step; z <= depthMax; z += step) {
+    const yLine       = -z;                // coordenada world
+    const surfaceDepth = tf + z;           // profundidade desde superfície
+    // só imprimir se não colidir com o rótulo tf já desenhado
+    if (Math.abs(surfaceDepth - tf) < step * 0.6) continue;
+    ctx.fillStyle = '#333';
+    ctx.fillText(`${surfaceDepth}m`, cx(xMin) - 2, cy(yLine) + 3);
     ctx.strokeStyle = '#e0e0e0';
     ctx.lineWidth = 0.5;
     ctx.beginPath();
