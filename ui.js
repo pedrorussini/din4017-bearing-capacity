@@ -159,11 +159,12 @@ function calculate() {
     return;
   }
 
-  showResults(res, b, a, tf, layers);
+  showResults(res, b, a, tf, layers, above);
 }
 
 // ── Exibir resultados ─────────────────────────────────────────────────────────
-function showResults(res, b, a, tf, layers) {
+function showResults(res, b, a, tf, layers, above) {
+  setMemorialData(res, b, a, tf, layers, above);
   document.getElementById('results').style.display = 'block';
 
   // Caixas de resultado

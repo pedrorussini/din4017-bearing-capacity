@@ -229,7 +229,13 @@
 
   <!-- RESULTADOS -->
   <div class="card" id="results">
-    <h2>Resultados</h2>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <h2 style="border:none;margin:0;padding:0;">Resultados</h2>
+      <button class="btn-calc" style="background:#6a1b9a;font-size:0.85rem;padding:8px 18px;" onclick="downloadMemorial()">
+        ⬇ Memória de Cálculo (.docx)
+      </button>
+    </div>
+    <hr style="border:none;border-top:2px solid #e8edf3;margin-bottom:16px;">
 
     <div class="res-grid" id="res-grid"></div>
 
@@ -256,8 +262,10 @@
 
 </main>
 
+<script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
 <script src="calc.js"></script>
 <script src="draw.js"></script>
+<script src="memorial.js"></script>
 <script src="ui.js"></script>
 </body>
 </html>
