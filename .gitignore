@@ -3,4 +3,6 @@ node_modules/
 test_docx.js
 test_umd.js
 test_memorial_full.js
+test_memorial_v2.js
+test_memorial_na.js
 debug.js
