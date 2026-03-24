@@ -1,0 +1,6 @@
+node_modules/
+*.docx
+test_docx.js
+test_umd.js
+test_memorial_full.js
+debug.js
